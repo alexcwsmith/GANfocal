@@ -5,7 +5,7 @@ from GANfocal_DataLoader import Train_dataset, Test_dataset
 import math
 from scipy.ndimage.interpolation import zoom
 from scipy.ndimage.filters import gaussian_filter
-from utils import smooth_gan_labels, subPixelConv3d
+from GANfocal_Utils import smooth_gan_labels, subPixelConv3d
 import os
 from skimage.measure import compare_ssim as ssim
 from skimage.measure import compare_psnr as psnr
