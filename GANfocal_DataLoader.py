@@ -3,7 +3,9 @@ import os
 from skimage import io
 from scipy.ndimage import gaussian_filter
 from skimage.util import view_as_windows
+import random
 
+random.seed(42)
 
 class Train_dataset(object):
     def __init__(self, data_path, zdepth, height, width, batch_size, train_portion=0.8):
@@ -12,9 +14,12 @@ class Train_dataset(object):
         self.height = height
         self.width = width
         self.batch_size = batch_size
-        self.file_list = os.listdir(self.data_path)
+        self.file_list = random.shuffle(os.listdir(self.data_path))
         self.train_size = int(round(len(self.file_list) * train_portion))
         self.file_list = self.file_list[: self.train_size]
+
+    def shuffle():
+        return()
 
     def retrieveData(self, iteration):
         data_batch = self.file_list[
@@ -26,10 +31,12 @@ class Train_dataset(object):
         for image in data_batch:
             filename = os.path.join(self.data_path, image)
             im = io.imread(filename)
+            im = np.squeeze(im)
             im = im[: self.zdepth, : self.height, : self.width]
             data[i] = im
             i = i + 1
         return data
+
 
     def blurData(self, iteration):
         data_batch = self.file_list[
@@ -41,6 +48,7 @@ class Train_dataset(object):
         for image in data_batch:
             filename = os.path.join(self.data_path, image)
             im = io.imread(filename)
+            im = np.squeeze(im)
             im = im[: self.zdepth, : self.height, : self.width]
             im = gaussian_filter(im, sigma=1.2, order=0)
             data_blur[i] = im
@@ -81,7 +89,7 @@ class Test_dataset(object):
         self.height = height
         self.width = width
         self.batch_size = batch_size
-        self.file_list = os.listdir(self.data_path)
+        self.file_list = random.shuffle(os.listdir(self.data_path))
         self.test_size = int(round(len(self.file_list) * test_portion))
         self.file_list = self.file_list[-self.test_size :]
 
@@ -98,6 +106,7 @@ class Test_dataset(object):
         for image in data_batch:
             filename = os.path.join(self.data_path, image)
             im = io.imread(filename)
+            im = np.squeeze(im)
             im = im[: self.zdepth, : self.height, : self.width]
             data[i] = im
             i = i + 1
@@ -113,6 +122,7 @@ class Test_dataset(object):
         for image in data_batch:
             filename = os.path.join(self.data_path, image)
             im = io.imread(filename)
+            im = np.squeeze(im)
             im = im[: self.zdepth, : self.height, : self.width]
             im = gaussian_filter(im, sigma=1.2, order=0)
             data_blur[i] = im

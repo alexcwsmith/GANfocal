@@ -7,21 +7,20 @@ from scipy.ndimage.interpolation import zoom
 from scipy.ndimage.filters import gaussian_filter
 from GANfocal_Utils import smooth_gan_labels, subPixelConv3d
 import os
-from skimage.measure import compare_ssim as ssim
-from skimage.measure import compare_psnr as psnr
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+from skimage.metrics import structural_similarity as ssim
+from skimage.metrics import peak_signal_noise_ratio as psnr
 from keras.layers.convolutional import UpSampling3D
 import numpy as np
 import pandas as pd
 from skimage import io
-
+import random
 
 def lrelu1(x):
     return tf.maximum(x, 0.25 * x)
 
-
 def lrelu2(x):
-    return tf.maximum(x, 0.4 * x)
-
+    return tf.maximum(x, 0.3 * x)
 
 def discriminator(
     input_disc,
@@ -131,7 +130,6 @@ def discriminator(
 
         return x, logits
 
-
 def generator(
     input_gen,
     kernel,
@@ -139,6 +137,7 @@ def generator(
     img_zdepth,
     img_height,
     img_width,
+    batch_size=1,
     subpixel_NN=True,
     nn=True,
     upscaling_factor=2,
@@ -155,18 +154,13 @@ def generator(
     w_init_subpixel2 = zoom(w_init_subpixel2, (2, 2, 2, 1, 1), order=0)
     w_init_subpixel2_last = tf.constant_initializer(w_init_subpixel2)
 
+
     with tf.compat.v1.variable_scope("SRGAN_g", reuse=reuse):
         tl.layers.set_name_reuse(reuse)
-        x = InputLayer(input_gen, name="in")
-        x = Conv3dLayer(
-            x,
-            shape=(kernel, kernel, kernel, 1, feature_size),
-            strides=(1, 1, 1, 1, 1),
-            padding="SAME",
-            W_init=w_init,
-            name="conv1",
-        )
-        x = BatchNormLayer(x, act=lrelu1, is_train=is_train, name="BN-conv1")
+        x = InputLayer(input_gen, name='in')
+        x = Conv3dLayer(x, shape=(kernel, kernel, kernel, 1, feature_size), strides=(1, 1, 1, 1, 1),
+                        padding='SAME', W_init=w_init, name='conv1')
+        x = BatchNormLayer(x, act=lrelu1, is_train=is_train, name='BN-conv1')
         inputRB = x
         inputadd = x
 
@@ -276,13 +270,7 @@ def generator(
                 x,
                 shape=(kernel, kernel, kernel, feature_size, 64),
                 act=lrelu1,
-                strides=(
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ),
+                strides=(1, 1, 1, 1, 1),
                 padding="SAME",
                 W_init=w_init,
                 name="conv1-ub/1",
@@ -292,13 +280,7 @@ def generator(
                 InputLayer(x, name="in ub1 conv2"),
                 shape=(kernel, kernel, kernel, 64, 64),
                 act=lrelu1,
-                strides=(
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ),
+                strides=(1, 1, 1, 1, 1),
                 padding="SAME",
                 W_init=w_init,
                 name="conv2-ub/1",
@@ -310,13 +292,7 @@ def generator(
                     x,
                     shape=(kernel, kernel, kernel, 64, 64),
                     act=lrelu1,
-                    strides=(
-                        1,
-                        1,
-                        1,
-                        1,
-                        1,
-                    ),
+                    strides=(1, 1, 1, 1, 1),
                     padding="SAME",
                     W_init=w_init,
                     name="conv1-ub/2",
@@ -326,13 +302,7 @@ def generator(
                     InputLayer(x, name="in ub2 conv2"),
                     shape=(kernel, kernel, kernel, 64, 64),
                     act=lrelu1,
-                    strides=(
-                        1,
-                        1,
-                        1,
-                        1,
-                        1,
-                    ),
+                    strides=(1, 1, 1, 1, 1),
                     padding="SAME",
                     W_init=w_init,
                     name="conv2-ub/2",
@@ -341,13 +311,7 @@ def generator(
             x = Conv3dLayer(
                 x,
                 shape=(kernel, kernel, kernel, 64, 1),
-                strides=(
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ),
+                strides=(1, 1, 1, 1, 1),
                 act=tf.nn.tanh,
                 padding="SAME",
                 W_init=w_init,
@@ -368,13 +332,7 @@ def generator(
                 x,
                 shape=(kernel, kernel, kernel, feature_size, 64),
                 act=lrelu1,
-                strides=(
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ),
+                strides=(1, 1, 1, 1, 1),
                 padding="SAME",
                 W_init=w_init,
                 name="conv1-ub/1",
@@ -394,13 +352,7 @@ def generator(
                     x,
                     shape=(kernel, kernel, kernel, int((64) / 8), 64),
                     act=lrelu1,
-                    strides=(
-                        1,
-                        1,
-                        1,
-                        1,
-                        1,
-                    ),
+                    strides=(1, 1, 1, 1, 1),
                     padding="SAME",
                     W_init=w_init,
                     name="conv1-ub/2",
@@ -419,20 +371,13 @@ def generator(
             x = Conv3dLayer(
                 x,
                 shape=(kernel, kernel, kernel, int(64 / 8), 1),
-                strides=(
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                ),
+                strides=(1, 1, 1, 1, 1),
                 padding="SAME",
                 W_init=w_init,
                 name="convlast",
             )
 
         return x
-
 
 def train(
     modelName,
@@ -480,9 +425,9 @@ def train(
     # ##========================== DEFINE MODEL ============================##
     t_input_gen = tf.compat.v1.placeholder(
         "float32",
-        (int(batch_size), img_zdepth / 2, img_height / 2, img_width / 2, 1),
+        (int(batch_size), img_zdepth/2, img_height/2, img_width/2, 1),
         name="t_image_input_to_SRGAN_generator",
-    )
+   )
 
     t_target_image = tf.compat.v1.placeholder(
         "float32",
@@ -541,7 +486,7 @@ def train(
     )
 
     # ###========================== DEFINE TRAIN OPS ==========================###
-    run_opts = tf.RunOptions(report_tensor_allocations_upon_oom=True)
+    run_opts = tf.compat.v1.RunOptions(report_tensor_allocations_upon_oom=True)
     if np.random.uniform() > 0.1:
         # give correct classifications
         y_gan_real = tf.ones_like(disc_out_real)
@@ -578,7 +523,7 @@ def train(
         + tf.reduce_sum(tf.square(tf.abs(dz_real) - tf.abs(dz_fake)))
     )
     # g_gan loss was 10e-2
-    gen_lossrate = 20e-4
+    gen_lossrate = 10e-2
     g_gan_loss = gen_lossrate * tf.reduce_mean(
         tf.square(disc_out_fake - smooth_gan_labels(tf.ones_like(disc_out_real))),
         name="g_loss_gan",
@@ -631,19 +576,20 @@ def train(
     step = val_restore
     k = 0
     for j in range(val_restore, epochs + val_restore):
+        traindata.file_list=random.shuffle(traindata.file_list)
         for i in range(0, iterations_train):
             # ====================== LOAD DATA =========================== #
             hr_total = traindata.dataToTensor(i, blur=False)
             f, e = os.path.splitext(traindata.file_list[i])
 
-            print("{}".format(i))
+            print(f)
             hr = hr_total
 
             # NORMALIZING
             for t in range(0, hr.shape[0]):
-                normfactor = (np.amax(hr[t])) / 2
+                normfactor = (np.amin(hr[t]))
                 if normfactor != 0:
-                    hr[t] = (hr[t] - normfactor) / normfactor
+                    hr[t] = (hr[t] - normfactor)
             # xt_total is now hr_total
             # xt is now hr
             # x_generator is now lr_generator
@@ -702,23 +648,23 @@ def train(
             #            if j - val_restore == 0:
             hr_true_img = hr[0]
             if normfactor != 0:
-                hr_true_img = (hr_true_img + 1) * normfactor  # denormalize
+                hr_true_img = hr_true_img + normfactor  # denormalize
             #       img_true = nib.Nifti1Image(x_true_img, np.eye(4))
-            if step % saveiters == 0:
+            if step == 0:
                 io.imsave(
                     os.path.join(
-                        result_dir, str(f) + "_Epoch" + str(step) + "_hr_true.tif"
+                        result_dir, str(f) + "_hr_true.tif"
                     ),
                     hr_true_img,
                 )
             lr_gen_img = lrgenin[0]
             if normfactor != 0:
-                lr_gen_img = (lr_gen_img + 1) * normfactor  # denormalize
+                lr_gen_img = lr_gen_img +  normfactor  # denormalize
             #     img_gen = nib.Nifti1Image(x_gen_img, np.eye(4))
-            if step % saveiters == 0:
+            if step == 0:
                 io.imsave(
                     os.path.join(
-                        result_dir, str(f) + "_Epoch" + str(step) + "_lr_gen.tif"
+                        result_dir, str(f) + "_lr_gen.tif"
                     ),
                     lr_gen_img,
                 )
@@ -726,9 +672,10 @@ def train(
             lr_pred = session.run(gen_test.outputs, {t_input_gen: lrgenin})
             lr_pred_img = lr_pred[0]
             if normfactor != 0:
-                lr_pred_img = (lr_pred_img + 1) * normfactor  # denormalize
+                lr_pred_img = lr_pred_img + normfactor  # denormalize
             #   lr_img_pred = nib.Nifti1Image(x_pred_img, np.eye(4))
             if step % saveiters == 0:
+                print("Saving predicted image " + str(f) + "Epoch" + str(step))
                 io.imsave(
                     os.path.join(
                         result_dir, str(f) + "_Epoch" + str(step) + "_lr_pred.tif"
@@ -775,7 +722,6 @@ def train(
         )
         f.close()
     return (array_psnr, array_ssim)
-
 
 def evaluate(
     modelName,
@@ -891,13 +837,13 @@ def evaluate(
         print(val_ssim)
         # save volumes
         filename_gen = os.path.join(
-            result_dir, str(f) + "_" + str(i) + "_" + str(modelName) + "gen.tif"
+            result_dir, str(f) + "_" + str(i) + "_" + str(modelName) + "gen_SR.tif"
         )
-        img_volume_gen = io.imsave(filename_gen, volume_generated)
+        io.imsave(filename_gen, volume_generated)
         filename_real = os.path.join(
             result_dir, str(f) + "_" + str(i) + "_" + str(modelName) + "real.tif"
         )
-        img_volume_real = io.imsave(filename_real, volume_real)
+        io.imsave(filename_real, volume_real)
 
     with open(
         os.path.join(result_dir, modelName + "_EvaluationResults.txt"), "a+"
