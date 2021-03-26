@@ -7,13 +7,13 @@ Created on Tue Dec  1 09:47:55 2020
 """
 
 import os
-
 os.chdir("/d2/studies/ImageGAN/GANfocal/")
-import GANfocal_Model as gfm
+os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+import GANfocal_Model_NoBatchNormLayers as gfm
 
-modelName = "Dec5_44images"
+modelName = "March26_2021_DiscrimGAP_NoBatchNormDG"
 
-img_path = "/d2/studies/ImageGAN/GANfocal/images/"
+img_path = "/d2/studies/ImageGAN/GANfocal/Data/March2021_TrainingData"
 result_dir = "/d2/studies/ImageGAN/GANfocal/" + modelName + "/"
 if not os.path.exists(result_dir):
     os.mkdir(result_dir)
@@ -26,7 +26,7 @@ subpixel_NN = True
 evaluate = False
 nn = False
 batch_size = 1
-restore = checkpoint_dir
+restore = None
 
 img_zdepth = 50
 img_height = 256
@@ -34,16 +34,16 @@ img_width = 256
 batch_size = 1
 kernel = 3
 feature_size = 64
-epochs = 10
-saveiters = 10
+epochs = 20
+saveiters = 1
 train_fraction = 0.8
-
+normalize=False
 
 psnr, ssim = gfm.train(modelName, img_zdepth, img_width, img_height, kernel=kernel, img_path=img_path, 
                        result_dir=result_dir, checkpoint_dir=checkpoint_dir, upscaling_factor=2, 
                        residual_blocks=residual_blocks, feature_size=feature_size, 
                        subpixel_NN=True, nn=False, restore=restore, batch_size=batch_size, 
-                       epochs=epochs, saveiters=saveiters, train_fraction=train_fraction,
+                       epochs=epochs, saveiters=saveiters, train_fraction=train_fraction, normalize=normalize
 )
 
 
@@ -52,8 +52,9 @@ gfm.evaluate(modelName, kernel, img_zdepth, img_height, img_width, img_path, che
              residual_blocks=6, subpixel_NN=True, nn=False)
 
 
-def reference_slicer(a, b):
-    index = [slice(0, dim) for dim in b.shape]
-    for i in range(len(b.shape), len(a.shape)):
-        index.append(slice(0, a.shape[i]))
-    return a[index]
+#Changelog:
+#12/6 - introduced gen_lossrate variable and set to 20e-4 (was 10e-3, 10e-2 before that)
+    
+    
+    
+    

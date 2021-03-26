@@ -14,7 +14,7 @@ class Train_dataset(object):
         self.height = height
         self.width = width
         self.batch_size = batch_size
-        self.file_list = random.shuffle(os.listdir(self.data_path))
+        self.file_list = os.listdir(self.data_path)
         self.train_size = int(round(len(self.file_list) * train_portion))
         self.file_list = self.file_list[: self.train_size]
 
@@ -89,12 +89,9 @@ class Test_dataset(object):
         self.height = height
         self.width = width
         self.batch_size = batch_size
-        self.file_list = random.shuffle(os.listdir(self.data_path))
+        self.file_list = os.listdir(self.data_path)
         self.test_size = int(round(len(self.file_list) * test_portion))
         self.file_list = self.file_list[-self.test_size :]
-
-    def shuffle():
-        return 0.8
 
     def retrieveData(self, iteration):
         data_batch = self.file_list[
